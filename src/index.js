@@ -4,6 +4,8 @@ const cors = require('cors')
 const app = express();
 const path = require('path');
 require('dotenv').config(); 
+require('./database/connection');
+require('./routes/User');
 
 // Settings
 app.set('port',process.env.PORT || 3030);
@@ -19,6 +21,8 @@ app.use(express.json());
 
 
 // Routes
+app.use('/users',require('./routes/User'));
+
 
 // Starting the server
 app.listen(app.get('port'), () => { console.log(`Listing on ${app.get('port')}`); });

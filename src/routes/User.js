@@ -1,79 +1,66 @@
+require('dotenv').config();
 const { Router } = require('express');
+
 const router = Router();
-const User = require('../models/User');
-
-const { authenticator } = require('otplib')
 const QRCode = require('qrcode')
+const User = require('../models/User');
+const { authenticator } = require('otplib')
 
-
-router.get('/', async (req, res) => {
-    const users = await User.find();
-    res.json(users);
-});
-
-router.post('/sign-up', async (req, res) => {
-    const { firstName, lastName, email, password } = req.body;
-
-    const secret = authenticator.generateSecret();
-
-
-    const user = new User({
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        password: password,
-        secret
-    });
-
-
-    try {
-        await user.save();
-        const keyUri = authenticator.keyuri(email, '2FA Node App test', secret);
-        const qr  = await QRCode.toDataURL(keyUri);
-        res.json({
-            qr,
-            authenticatorUrl: authenticator.keyuri(email, '2FA Node App test', secret)
-        });
-    } catch (err) {
-        res.json(err.code);
+router.post('/register', async (req, res) => {
+    const { username } = req.body;
+    if (username) {
+        const secret = authenticator.generateSecret();
+        const user = new User({ username, secret });
+        try {
+            await user.save();
+            const authenticatorUrl = authenticator.keyuri(username, process.env.APP_NAME, secret);
+            const qr = await QRCode.toDataURL(authenticatorUrl);
+            return res.json({ qr, authenticatorUrl });
+        } catch (err) {
+            if (err.code === 11000) {
+                return res.status(400).json({ error: 'Username already exists' });
+            } else {
+                return res.status(400).json({ error: "Something went wrong. Code Error: " + err.code });
+            }
+        }
+    } else {
+        return res.status(403).json({ error: "The username field is required" })
     }
 });
 
 
-
-router.get('/qr', async (req, res) => {
-
-const { email } = req.body; 
-    const user = await User.findOne({email});
-    if(user){
-        const keyUri = authenticator.keyuri(user.email, '2FA Node App test', user.secret);
-        const qr  = await QRCode.toDataURL(keyUri);
-        res.send(
-            `<img src="${qr}"/>`
-        );
-    }else{
-        res.status(404)
+router.get('/info', async (req, res) => {
+    const { username } = req.body;
+    const user = await User.findOne({ username });
+    if (user) {
+        const authenticatorUrl = authenticator.keyuri(user.username, process.env.APP_NAME, user.secret);
+        const qr = await QRCode.toDataURL(authenticatorUrl);
+        return res.json({ qr, authenticatorUrl });
+    } else {
+        return res.status(404).json({ error: 'User not found' })
     }
 });
-router.post('/login', async (req, res) => {
-    const { email, password, otpCode } = req.body; 
 
-    const user = await User.findOne({email, password});
-    if(user){
-        const otpValidateRes = await authenticator.check(otpCode, user.secret);
-        if(otpValidateRes)
-            res.json({status: true, user})
-        else 
-            res.json({status: false, msg: "OTP Invalid"})
-    }else{
-        res.json({ 
-            status: false,
-            msg: 'Incorrect Credentials'
-        })
+router.post('/validate', async (req, res) => {
+    const { username, otpCode } = req.body;
+    if (username && otpCode) {
+        const user = await User.findOne({ username });
+        if (user) {
+            const otpIsValid = await authenticator.check(otpCode, user.secret);
+
+            if (otpIsValid)
+                return res.json({ status: true, user })
+            else
+                return res.json({ status: false, msg: "Invalid OTP code" })
+        } else {
+            return res.json({
+                status: false,
+                msg: 'Incorrect Credentials'
+            })
+        }
+    } else {
+        res.status(403).json({ error: "The username and otpCode fields are required" })
     }
-    
-
 });
 
 module.exports = router;
-

@@ -21,8 +21,10 @@ app.use(express.json());
 
 
 // Routes
-app.use('/users',require('./routes/User'));
+app.use('/',require('./routes/User'));
 
 
 // Starting the server
 app.listen(app.get('port'), () => { console.log(`Listing on ${app.get('port')}`); });
+
+module.exports = app;

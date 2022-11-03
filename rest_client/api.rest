@@ -1,0 +1,25 @@
+
+### REGISTER
+POST http://127.0.0.1:3030/register
+content-type: application/json
+
+{
+	"username": "username"
+}
+
+### GET INFO
+GET http://127.0.0.1:3030/info
+content-type: application/json
+
+{
+	"username": "username"
+}
+
+### Validate
+POST http://127.0.0.1:3030/validate
+content-type: application/json
+
+{
+	"username": "ereta@gmail.com",
+	"otpCode" : "312986"
+}
